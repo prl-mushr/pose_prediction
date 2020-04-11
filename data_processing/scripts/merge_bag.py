@@ -4,8 +4,7 @@ Merges multiple rosbags to output a new rosbag.
 Make sure the individual bag files are time filtered to have exactly the same start time and end time and that they are the
 exactly the same length. This is so that the output bagfile can be time synced after the merge. 
 
-from command line 
-go to directory...
+run
 python merge_bag.py <outputbag> <inputbag> <inputbag> <inputbag>
 
 '"""
