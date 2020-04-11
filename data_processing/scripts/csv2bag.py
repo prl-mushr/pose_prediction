@@ -6,6 +6,7 @@ For future use:
 1. Get the timestamps for the start times of each car. 
 2. Change the start_time and start timestamps as reminded in the comments. 
 3. This script has to be ran once for each car. So 3 times for three car. 
+
 """
 
 import rospy
