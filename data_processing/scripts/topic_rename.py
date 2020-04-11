@@ -3,7 +3,7 @@
 Renames one topic in bagfile and outputs a new renamed bagfile
 	need to make this be able to rename mulitple topics at once. 
 	
-python topic_rename.py <intopic> <outtopic> <inbag> <outbag> 
+python topic_rename.py <inbag> <outbag> <car#>
 
 List of Topics
  /camera/accel/imu_info                               1 msg     : realsense2_camera/IMUInfo            
