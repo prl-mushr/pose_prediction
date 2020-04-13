@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
-Renames one topic in bagfile and outputs a new renamed bagfile
-	need to make this be able to rename mulitple topics at once. 
+Renames list of topics in bag
 	
 python topic_rename.py <inbag> <outbag> <car#>
 
