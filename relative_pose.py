@@ -6,6 +6,14 @@ import geometry_msgs.msg
 import sensor_msgs.msg
 import std_msgs.msg
 
+from image_geometry import PinholeCameraModel
+
+from cv_bridge import CvBridge
+import cv2
+
+import os
+os.chdir('/')
+
 def inverse_transform(t):
     R_inv = t[:3,:3].T
     p_inv = np.matmul(-R_inv,t[:3,3])
@@ -25,25 +33,39 @@ def inverse_transform(t):
     return t_inv
 
 transformerROS = tf.TransformerROS()
+bridge = CvBridge()
+pinhole = PinholeCameraModel()
 
 bag = rosbag.Bag('output.bag')
-topics = ['/car24/PoseStamped','/car26/PoseStamped']
+topics = ['/car24/PoseStamped','/car26/PoseStamped','/car24/camera/color/camera_info','/car24/camera/color/image_throttled']
 car24PoseStamps = []
 car26PoseStamps = []
+cameraInfos = []
+images = []
 for topic, msg, t in bag.read_messages(topics=topics):
     if topic == '/car24/PoseStamped':
         car24PoseStamps.append((msg, t))
     elif topic == '/car26/PoseStamped':
         car26PoseStamps.append((msg, t))
+    elif topic == '/car24/camera/color/camera_info':
+        cameraInfos.append((msg, t))
+    elif topic == '/car24/camera/color/image_throttled':
+        images.append((msg, t))
 
-
+idx24 = 0
 idx26 = 0
-for idx24, (msg, t) in enumerate(car24PoseStamps):
-    # bring car26 data into sync
+idxInfo = 0
+for idxImage, (msg, t) in enumerate(images):
+    # bring rest of data into sync
+    while idx24 < len(car24PoseStamps) - 1 and t > car24PoseStamps[idx24][1]:
+        idx24 += 1
     while idx26 < len(car26PoseStamps) - 1 and t > car26PoseStamps[idx26][1]:
         idx26 += 1
+    while idxInfo < len(cameraInfos) - 1 and t > cameraInfos[idxInfo][1]:
+        idxInfo += 1
+    
 
-    car24PoseStamp = msg
+    car24PoseStamp = car24PoseStamps[idx24][0]
     car26PoseStamp = car26PoseStamps[idx26][0]
 
     car24Pose = car24PoseStamp.pose
@@ -62,5 +84,23 @@ for idx24, (msg, t) in enumerate(car24PoseStamps):
     print('car26_T_w', car26_T_w)
     print('w_T_car26', w_T_car26)
     print('car26_T_car24', car26_T_car24)
+
+    if (car26_T_car24[0,3] < 0):
+        continue
+
+    relative_pt = (car26_T_car24[0,3], car26_T_car24[1,3], car26_T_car24[2,3])
+
+    camInfoMsg = cameraInfos[idxInfo][0]
+    imageMsg = msg
+
+    cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+
+    pinhole.fromCameraInfo(camInfoMsg)
+    p2 = pinhole.project3dToPixel(relative_pt)
+    print(p2)
+    p2_round = (int(p2[0]), int(p2[1]))
+    cv2.circle(cv_image, p2_round, 10, (255,255,0), 3)
+
+    cv2.imwrite("image" + str(idxImage) + ".png", cv_image)
     
     break  # exit after first loop
