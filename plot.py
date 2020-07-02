@@ -61,9 +61,9 @@ for topic, msg, t in bag.read_messages(topics=topics):
 
         pt26_T_w = transformerROS.fromTranslationRotation((-ps_26[-1].x, ps_26[-1].y, ps_26[-1].z), (-q_26.x, q_26.y, -q_26.z, q_26.w))
         fix = np.matrix([
-            [ 1, 0, 0, 0],
+            [-1, 0, 0, 0],
             [ 0,-1, 0, 0],
-            [ 0, 0,-1, 0],
+            [ 0, 0, 1, 0],
             [ 0, 0, 0, 1]
         ])
         pt26_T_w = np.matmul(pt26_T_w, fix)
