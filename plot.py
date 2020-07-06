@@ -23,13 +23,34 @@ def translate_transform(p):
     t[2,3] = p[2]
     return t
 
+def inverse_transform(t):
+    R_inv = t[:3,:3].T
+    p_inv = np.matmul(-R_inv,t[:3,3])
+    t_inv = np.eye(4)
+    t_inv[0,0] = R_inv[0,0]
+    t_inv[0,1] = R_inv[0,1]
+    t_inv[0,2] = R_inv[0,2]
+    t_inv[1,0] = R_inv[1,0]
+    t_inv[1,1] = R_inv[1,1]
+    t_inv[1,2] = R_inv[1,2]
+    t_inv[2,0] = R_inv[2,0]
+    t_inv[2,1] = R_inv[2,1]
+    t_inv[2,2] = R_inv[2,2]
+    t_inv[0,3] = p_inv[0]
+    t_inv[1,3] = p_inv[1]
+    t_inv[2,3] = p_inv[2]
+    return t_inv
+
 bag = rosbag.Bag('/home/tudorf/mushr/catkin_ws/src/learning-image-geometry/align.bag')
 topics = ['/car24/PoseStamped','/car26/PoseStamped','/car26/camera/color/camera_info','/car26/camera/color/image_throttled']
-ps_24 = []
-ps_26 = []
+ps_24 = None
+ps_26 = None
 q_24 = None
 q_26 = None
+camInfo = None
 count = 0
+camModel = PinholeCameraModel()
+imgs = []
 for topic, msg, t in bag.read_messages(topics=topics):
     if topic == '/car24/PoseStamped':
         q_24 = msg.pose.orientation
@@ -37,9 +58,13 @@ for topic, msg, t in bag.read_messages(topics=topics):
     elif topic == '/car26/PoseStamped':
         q_26 = msg.pose.orientation
         ps_26 = msg.pose.position
+    elif topic == '/car26/camera/color/camera_info':
+        camInfo = msg
     elif topic == '/car26/camera/color/image_throttled':
+        imgs.append(msg)
         count += 1
-        if count == 1: continue
+        if count < 2:
+            continue
 
         q_temp = (q_24.x, q_24.y, q_24.z, q_24.w)
         pt24_T_w = transformerROS.fromTranslationRotation((ps_24.x, ps_24.y, ps_24.z), (q_24.x, q_24.y, q_24.z, q_24.w))
@@ -49,7 +74,7 @@ for topic, msg, t in bag.read_messages(topics=topics):
             [ 0,-1, 0, 0],
             [ 0, 0, 0, 1]
         ])
-        # pt24_T_w = np.matmul(pt24_T_w, fix24)
+        pt24_T_w = np.matmul(pt24_T_w, fix24)
 
         x24_T_pt24 = translate_transform([0.5,0,0])
         x24_T_w = np.matmul(pt24_T_w, x24_T_pt24)
@@ -58,22 +83,22 @@ for topic, msg, t in bag.read_messages(topics=topics):
         y24_T_pt24 = translate_transform([0,0.5,0])
         y24_T_w = np.matmul(pt24_T_w, y24_T_pt24)
         plt.plot([ps_24.x, y24_T_w[0,3]], [ps_24.y, y24_T_w[1,3]], '.-g')
-        print('24y (depth)', y24_T_w[2,3], ps_24.z)
+
 
         z24_T_pt24 = translate_transform([0,0,0.5])
         z24_T_w = np.matmul(pt24_T_w, z24_T_pt24)
         plt.plot([ps_24.x, z24_T_w[0,3]], [ps_24.y, z24_T_w[1,3]], '.-b')
-        print('24z (depth)', z24_T_w[2,3], ps_24.z)
+
 
         pt26_T_w = transformerROS.fromTranslationRotation((ps_26.x, ps_26.y, ps_26.z), (q_26.x, q_26.y, q_26.z,q_26.w))
         # pt26_T_w = transformerROS.fromTranslationRotation((0,0,0), (q_26.z, q_26.x, q_26.y, -q_26.w))
         fix26 = np.matrix([
-            [-1, 0, 0, 0],
+            [ 1, 0, 0, 0],
             [ 0, 0, 1, 0],
             [ 0,-1, 0, 0],
             [ 0, 0, 0, 1]
         ])
-        #pt26_T_w = np.matmul(pt26_T_w, fix26)
+        pt26_T_w = np.matmul(pt26_T_w, fix26)
         
 
         x26_T_pt26 = translate_transform([0.5,0,0])
@@ -87,19 +112,34 @@ for topic, msg, t in bag.read_messages(topics=topics):
         z26_T_pt26 = translate_transform([0,0,0.5])
         z26_T_w = np.matmul(pt26_T_w, z26_T_pt26)
         plt.plot([ps_26.x, z26_T_w[0,3]], [ps_26.y, z26_T_w[1,3]], '.-c')
-        print('26', z26_T_w[2,3], ps_26.z)
+
+
+        w_T_pt26 = inverse_transform(pt26_T_w)
+        pt24_T_pt26 = np.matmul(w_T_pt26, pt24_T_w)
+
+        # the Camera Pinhole model uses +x right, +y down, +z forward
+        pt_3d = (-pt24_T_pt26[1,3],-pt24_T_pt26[2,3],pt24_T_pt26[0,3])
+        print('3d pt:', pt_3d)
+        camModel.fromCameraInfo(camInfo)
+        pt_2d = camModel.project3dToPixel(pt_3d)
+        print('2d pt:', pt_2d)
+        p2_round = (int(pt_2d[0]), int(pt_2d[1]))
+        
+        # x in 2d pt is y in 3d pt
+        # y in 2d pt is z in 3d pt
+        # focal_len = 0.0193
+        # x_2d = pt_3d[1] / pt_3d[0] * focal_len * 640
+        # y_2d = pt_3d[2] / pt_3d[0] * focal_len * 480
+        # print(x_2d, y_2d)
+        # p2_round = (int(x_2d + 320), int(y_2d + 240))
+        # print(p2_round)
 
 
 
-        # ps_26, q_26
-        x = -ps_26.x
-        y = ps_26.y
-        matrix26 = tf.transformations.quaternion_matrix([q_26.x, q_26.y, q_26.z, q_26.w])
+        car26_image = bridge.imgmsg_to_cv2(imgs[-2], "bgr8")
+        cv2.circle(car26_image, p2_round, 10, (0,255,0), 3)
 
-        xdir_x = x + matrix26[1,0]
-        xdir_y = y + matrix26[0,0]
-        # plt.plot([x, xdir_x], [y, xdir_y], '.-g')
-        print(matrix26)
+        
 
 
         print(count)
@@ -109,7 +149,7 @@ for topic, msg, t in bag.read_messages(topics=topics):
         plt.clf()
 
 
-        car26_image = bridge.imgmsg_to_cv2(msg, "bgr8")
         plot_image = cv2.imread('/home/tudorf/mushr/position' + str(count) + '.png')
-        combo = cv2.vconcat([car26_image, plot_image])
+        combo = cv2.hconcat([car26_image, plot_image])
         cv2.imwrite('combo' + str(count) + '.png', combo)
+        
