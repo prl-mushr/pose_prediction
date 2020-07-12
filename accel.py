@@ -1,3 +1,5 @@
+# Plots the acceleration from the original car bag file for comparison to the mocap data
+
 import rosbag
 import rospy
 import numpy as np
