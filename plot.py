@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 
 transformerROS = tf.TransformerROS()
 bridge = CvBridge()
+camModel = PinholeCameraModel()
+
 
 def translate_transform(p):
     t = np.eye(4)
@@ -49,7 +51,6 @@ q_24 = None
 q_26 = None
 camInfo = None
 count = 0
-camModel = PinholeCameraModel()
 imgs = []
 for topic, msg, t in bag.read_messages(topics=topics):
     if topic == '/car24/PoseStamped':
