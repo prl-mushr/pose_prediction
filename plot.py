@@ -140,7 +140,7 @@ for topic, msg, t in bag.read_messages(topics=topics):
         car26_image = bridge.imgmsg_to_cv2(imgs[-2], "bgr8")
         cv2.circle(car26_image, p2_round, 10, (0,255,0), 3)
 
-        
+        #add bounding box here
 
 
         print(count)
