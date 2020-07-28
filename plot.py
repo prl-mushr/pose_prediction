@@ -141,6 +141,48 @@ for topic, msg, t in bag.read_messages(topics=topics):
         cv2.circle(car26_image, p2_round, 10, (0,255,0), 3)
 
         #add bounding box here
+        base26_T_cam26 = translate_transform([0.012, 0.033, 0.068])
+        pt26_T_base26 = translate_transform([0.058325, 0.0, -0.08125])
+
+        base24_T_pt24 = inverse_transform(pt26_T_base26)
+        center24_T_base24 = translate_transform([-0.015,0.0,0.003])
+
+        pt24_T_cam26 = np.matmul(pt24_T_w, np.matmul(w_T_pt26, np.matmul(base26_T_cam26, pt26_T_base26))) 
+        center24_T_cam26 = np.matmul(center24_T_base24, np.matmul(pt24_T_cam26, base24_T_pt24))
+
+        
+        f_t_l = np.matmul(translate_transform([0.22, 0.134, 0.79]), center24_T_cam26)
+        f_t_r = np.matmul(translate_transform([0.22, -0.134, 0.79]),center24_T_cam26)
+        f_b_l = np.matmul(translate_transform([0.22, 0.134, -0.79]), center24_T_cam26)
+        f_b_r = np.matmul(translate_transform([0.22, -0.134, -0.79]), center24_T_cam26)
+
+        b_t_l = np.matmul(translate_transform([-0.22, 0.134, 0.79]), center24_T_cam26)
+        b_t_r = np.matmul(translate_transform([-0.22, -0.134, 0.79]), center24_T_cam26)
+        b_b_l = np.matmul(translate_transform([-0.22, 0.134, -0.79]), center24_T_cam26)
+        b_b_r = np.matmul(translate_transform([-0.22, -0.134, -0.79]), center24_T_cam26)
+
+        a = camModel.project3dToPixel((-f_t_l[1,3], -f_t_l[2,3], f_t_l[0,3]))
+        b = camModel.project3dToPixel((-f_t_r[1,3], -f_t_r[2,3], f_t_r[0,3]))
+        c = camModel.project3dToPixel((-f_b_l[1,3], -f_b_l[2,3], f_b_l[0,3]))
+        d = camModel.project3dToPixel((f_b_r[1,3], -f_b_r[2,3], f_b_r[0,3]))
+
+        e = camModel.project3dToPixel((-b_t_l[1,3], -b_t_l[2,3], b_t_l[0,3]))
+        f = camModel.project3dToPixel((-b_t_r[1,3], -b_t_r[2,3], b_t_r[0,3]))
+        g = camModel.project3dToPixel((-b_b_l[1,3], -b_b_l[2,3], b_b_l[0,3]))
+        h = camModel.project3dToPixel((-b_b_r[1,3], -b_b_r[2,3], b_b_r[0,3]))
+
+        x_min = int(min(a[0],b[0],c[0],d[0],e[1],f[0],g[0],h[0]))
+        x_max = int(max(a[0],b[0],c[0],d[0],e[0],f[0],g[0],h[0]))
+
+        y_min = int(min(a[1],b[1],c[1],d[1],e[1],f[1],g[1],h[1]))
+        y_max = int(max(a[1],b[1],c[1],d[1],e[1],f[1],g[1],h[1]))
+
+
+
+
+        
+        cv2.rectangle(car26_image,(x_min, y_max), (x_max, y_min), (255, 0, 0), 2)
+
 
 
         print(count)
