@@ -40,13 +40,33 @@ def inverse_transform(t):
     t_inv[2,3] = p_inv[2]
     return t_inv
 
+def get_corners(center_T_cam):
+    # center_T_cam is the transform of centerXX in terms of camYY, where we want the corners of carXX in terms of camYY
+    # dx,y,z are the dimensions of the car in the x,y,z directions from the center
+    dx = 0.22
+    dy = 0.134
+    dz = 0.079
+    return [
+        np.matmul(center_T_cam, translate_transform([ dx,  dy,  dz])),
+        np.matmul(center_T_cam, translate_transform([ dx, -dy,  dz])),
+        np.matmul(center_T_cam, translate_transform([ dx,  dy, -dz])),
+        np.matmul(center_T_cam, translate_transform([ dx, -dy, -dz])),
+        np.matmul(center_T_cam, translate_transform([-dx,  dy,  dz])),
+        np.matmul(center_T_cam, translate_transform([-dx, -dy,  dz])),
+        np.matmul(center_T_cam, translate_transform([-dx,  dy, -dz])),
+        np.matmul(center_T_cam, translate_transform([-dx, -dy, -dz]))
+    ]
+
+# constant transforms
 trackedPt_T_baselink = translate_transform([-0.058325, 0, 0.08125])
 colorCam_T_baselink = translate_transform([0.02, 0.033, 0.068])
 center_T_baselink = translate_transform([-0.015, 0.0, 0.003])
 baselink_T_trackedPt = inverse_transform(trackedPt_T_baselink)
 
 bag = rosbag.Bag(PATH_TO_INPUT_BAG)
-topics = ['/vrpn_client_node/car35/pose', '/vrpn_client_node/car37/pose','/vrpn_client_node/car38/pose','/car37/camera/color/camera_info','/car37/camera/color/image_throttled']
+# subscribe to all /vrpn_client_node/carXX/pose for cars in dataset
+# subscribe to '/carXX/camera/color/camera_info' and '/carXX/camera/color/image_throttled' for camera car
+topics = ['/vrpn_client_node/car35/pose','/vrpn_client_node/car37/pose','/vrpn_client_node/car38/pose','/car37/camera/color/camera_info','/car37/camera/color/image_throttled']
 
 ps_35 = []
 ps_37 = []
@@ -69,11 +89,6 @@ for topic, msg, t in bag.read_messages(topics=topics):
 idx35 = 0
 idx37 = 0
 idx38 = 0
-
-print('mocap35', len(ps_35))
-print('mocap37', len(ps_37))
-print('mocap38', len(ps_38))
-print('image37', len(cam_37))
 
 for idxImg in range(len(cam_37)):
     targetT = cam_37[idxImg][0]
@@ -117,26 +132,8 @@ for idxImg in range(len(cam_37)):
     center35_T_cam37 = np.matmul(w_T_cam37, center35_T_w)
 
     # create Transforms for bounding box corners
-    corners35 = [
-        np.matmul(center35_T_cam37, translate_transform([ 0.22,  0.134,  0.079])),
-        np.matmul(center35_T_cam37, translate_transform([ 0.22, -0.134,  0.079])),
-        np.matmul(center35_T_cam37, translate_transform([ 0.22,  0.134, -0.079])),
-        np.matmul(center35_T_cam37, translate_transform([ 0.22, -0.134, -0.079])),
-        np.matmul(center35_T_cam37, translate_transform([-0.22,  0.134,  0.079])),
-        np.matmul(center35_T_cam37, translate_transform([-0.22, -0.134,  0.079])),
-        np.matmul(center35_T_cam37, translate_transform([-0.22,  0.134, -0.079])),
-        np.matmul(center35_T_cam37, translate_transform([-0.22, -0.134, -0.079]))
-    ]
-    corners38 = [
-        np.matmul(center38_T_cam37, translate_transform([ 0.22,  0.134,  0.079])),
-        np.matmul(center38_T_cam37, translate_transform([ 0.22, -0.134,  0.079])),
-        np.matmul(center38_T_cam37, translate_transform([ 0.22,  0.134, -0.079])),
-        np.matmul(center38_T_cam37, translate_transform([ 0.22, -0.134, -0.079])),
-        np.matmul(center38_T_cam37, translate_transform([-0.22,  0.134,  0.079])),
-        np.matmul(center38_T_cam37, translate_transform([-0.22, -0.134,  0.079])),
-        np.matmul(center38_T_cam37, translate_transform([-0.22,  0.134, -0.079])),
-        np.matmul(center38_T_cam37, translate_transform([-0.22, -0.134, -0.079]))
-    ]
+    corners35 = get_corners(center35_T_cam37)
+    corners38 = get_corners(center38_T_cam37)
 
     # convert to OpenCV image
     car37_image = bridge.imgmsg_to_cv2(cam_37[idxImg][1], "bgr8")
@@ -210,7 +207,7 @@ for idxImg in range(len(cam_37)):
         car38_rect = ((xmin, ymin), (xmax, ymax))
 
     # draw rectangles & check for overlap
-    overlap_tolerance = 5
+    overlap_tolerance = 10
     if car35_rect is not None:
         if car38_rect is not None:
             if car35_rect[0][0] > car38_rect[0][0] - overlap_tolerance and car35_rect[0][1] > car38_rect[0][1] - overlap_tolerance and \
@@ -218,9 +215,9 @@ for idxImg in range(len(cam_37)):
                     # reject draw
                     print('car38 overlaps car35')
             else:
-                cv2.rectangle(car37_image, car35_rect[0], car35_rect[1], (0,0,255), 1)
+                cv2.rectangle(car37_image, car35_rect[0], car35_rect[1], (0,255,0), 1)
         else:
-            cv2.rectangle(car37_image, car35_rect[0], car35_rect[1], (0,0,255), 1)
+            cv2.rectangle(car37_image, car35_rect[0], car35_rect[1], (0,255,0), 1)
     
     if car38_rect is not None:
         if car35_rect is not None:
