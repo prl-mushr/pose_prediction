@@ -1,4 +1,4 @@
-# Trim the original bag file to first 30 seconds
+# Trim the original bag file to specified range
 
 import rosbag
 import rospy
@@ -16,17 +16,21 @@ import cv2
 
 import matplotlib.pyplot as plt
 
+# Modify these
 read_bag = rosbag.Bag('/home/tudorf/mushr/car37_mocap.bag')
+write_bag = rosbag.Bag('/home/tudorf/mushr/catkin_ws/src/learning-image-geometry/car37_longtrim.bag', 'w')
+BEGIN_TIME = 210
+END_TIME = 400
+['/vrpn_client_node/car37/pose','/vrpn_client_node/car38/pose','/car37/camera/color/camera_info','/car37/camera/color/image_throttled', '/vrpn_client_node/car35/pose']
 
-write_bag = rosbag.Bag('/home/tudorf/mushr/catkin_ws/src/learning-image-geometry/car37_trim.bag', 'w')
 
 start_time = None
-for topic, msg, t in read_bag.read_messages(['/vrpn_client_node/car37/pose','/vrpn_client_node/car38/pose','/car37/camera/color/camera_info','/car37/camera/color/image_throttled', '/vrpn_client_node/car35/pose']):
+for topic, msg, t in read_bag.read_messages(topics=topics):
     if start_time is None:
         start_time = t
-    if t - start_time < rospy.Duration(secs=150):
+    if t - start_time < rospy.Duration(secs=BEGIN_TIME):
         continue
-    if t - start_time > rospy.Duration(secs=180):
+    if t - start_time > rospy.Duration(secs=END_TIME):
         break
     write_bag.write(topic, msg, t=t)
 
