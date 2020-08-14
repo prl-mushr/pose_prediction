@@ -1,5 +1,3 @@
-import csv
-
 import rosbag
 import numpy as np
 import tf
@@ -8,7 +6,7 @@ import cv2
 from cv_bridge import CvBridge
 from image_geometry import PinholeCameraModel
 
-PATH_TO_INPUT_BAG = '/home/tudorf/mushr/catkin_ws/src/learning-image-geometry/car37_longtrim.bag'
+PATH_TO_INPUT_BAG = '/home/ugrads/hard_data/carpose/bags/car37_trim.bag'
 FILE_PREFIX = 'car37_longtrim_'
 
 FRAME_SIZE_X = 640
@@ -94,6 +92,7 @@ print('mocap38', len(ps_38))
 print('image37', len(cam_37))
 
 for idxImg in range(len(cam_37)):
+    if idxImg % 1000 == 0: print(idxImg)
     targetT = cam_37[idxImg][0]
     while idx35< len(ps_35)-1   and ps_35[idx35][0]   < targetT: idx35 += 1
     while idx37< len(ps_37)-1   and ps_37[idx37][0]   < targetT: idx37 += 1
@@ -169,30 +168,35 @@ for idxImg in range(len(cam_37)):
     center35_round = (int(center35_2d[0]), int(center35_2d[1]))
     center38_round = (int(center38_2d[0]), int(center38_2d[1]))
 
+    # print(center35_3d)
+    # print(center38_3d)
+    # print(center35_2d)
+    # print(center38_2d)
 
-    # only continue if the observed robot is behind the camera
     car35_rect = None
     if center35_3d[2] > 0:
-        # initialize rectangle bounds to image size
-        # cv's image.shape is formatted as (height, width, length) a.k.a. (y, x, z)
         xmin = car37_image.shape[1] + 1
         xmax = -1
         ymin = car37_image.shape[0] + 1
         ymax = -1
-
         for corneridx, corner in enumerate(corners35):
             # find pixel coordinates of corners
             corner_3d = (-corner[1,3], -corner[2,3], corner[0,3])
-            corner_2d = camModel.project3dToPixel(corner_3d)
-            corner_round = (int(corner_2d[0]), int(corner_2d[1]))
-            
-            xmin = min(xmin, corner_round[0])
-            xmax = max(xmax, corner_round[0])
-            ymin = min(ymin, corner_round[1])
-            ymax = max(ymax, corner_round[1])
+            if corner_3d[2] > 0:
+                corner_2d = camModel.project3dToPixel(corner_3d)
+                corner_round = (int(corner_2d[0]), int(corner_2d[1]))
+                if corner_round[0] < 0: corner_round = (0, corner_round[1])
+                if corner_round[1] < 0: corner_round = (corner_round[0], 0)
+                if corner_round[0] > FRAME_SIZE_X: corner_round = (FRAME_SIZE_X, corner_round[1])
+                if corner_round[1] > FRAME_SIZE_Y: corner_round = (corner_round[0], FRAME_SIZE_Y)
+                
+                xmin = min(xmin, corner_round[0])
+                xmax = max(xmax, corner_round[0])
+                ymin = min(ymin, corner_round[1])
+                ymax = max(ymax, corner_round[1])
 
-        # save rectangle
-        car35_rect = ((xmin, ymin), (xmax, ymax))
+                # save rectangle
+                car35_rect = ((xmin, ymin), (xmax, ymax))
 
     car38_rect = None
     if center38_3d[2] > 0:
@@ -205,20 +209,24 @@ for idxImg in range(len(cam_37)):
         for corneridx, corner in enumerate(corners38):
             # find pixel coordinates of corners
             corner_3d = (-corner[1,3], -corner[2,3], corner[0,3])
-            corner_2d = camModel.project3dToPixel(corner_3d)
-            corner_round = (int(corner_2d[0]), int(corner_2d[1]))
+            if (corner_3d[2] > 0):
+                corner_2d = camModel.project3dToPixel(corner_3d)
+                corner_round = (int(corner_2d[0]), int(corner_2d[1]))
+                if corner_round[0] < 0: corner_round = (0, corner_round[1])
+                if corner_round[1] < 0: corner_round = (corner_round[0], 0)
+                if corner_round[0] > FRAME_SIZE_X: corner_round = (FRAME_SIZE_X, corner_round[1])
+                if corner_round[1] > FRAME_SIZE_Y: corner_round = (corner_round[0], FRAME_SIZE_Y)
 
-            xmin = min(xmin, corner_round[0])
-            xmax = max(xmax, corner_round[0])
-            ymin = min(ymin, corner_round[1])
-            ymax = max(ymax, corner_round[1])
-        
-                    
-
-        # save rectangle
-        car38_rect = ((xmin, ymin), (xmax, ymax))
+                xmin = min(xmin, corner_round[0])
+                xmax = max(xmax, corner_round[0])
+                ymin = min(ymin, corner_round[1])
+                ymax = max(ymax, corner_round[1])
+            
+                # save rectangle
+                car38_rect = ((xmin, ymin), (xmax, ymax))
     
-    with open('dataset/labels/' + FILE_PREFIX + str(idxImg).zfill(5) + '.txt', 'w') as labelfile:
+
+    with open('/home/ugrads/hard_data/carpose/dataset/labels/' + FILE_PREFIX + str(idxImg).zfill(5) + '.txt', 'w') as labelfile:
         # check for overlap
         overlap_tolerance = 10
         if car35_rect is not None:
@@ -226,7 +234,8 @@ for idxImg in range(len(cam_37)):
                 if car35_rect[0][0] > car38_rect[0][0] - overlap_tolerance and car35_rect[0][1] > car38_rect[0][1] - overlap_tolerance and \
                     car35_rect[1][0] < car38_rect[1][0] + overlap_tolerance and car35_rect[1][1] < car38_rect[1][1] + overlap_tolerance:
                         # reject
-                        print('car38 overlaps car35')
+                        # print('car38 overlaps car35')
+                        pass
                 else:
                     x_center, y_center, width, height = darknet_label_from_rect(car35_rect)
                     labelfile.write('0 ' + str(x_center) + ' ' + str(y_center) + ' ' + str(width) + ' ' + str(height) + '\n')
@@ -239,7 +248,8 @@ for idxImg in range(len(cam_37)):
                 if car38_rect[0][0] > car35_rect[0][0] - overlap_tolerance and car38_rect[0][1] > car35_rect[0][1] - overlap_tolerance and \
                     car38_rect[1][0] < car35_rect[1][0] + overlap_tolerance and car38_rect[1][1] < car35_rect[1][1] + overlap_tolerance:
                         # reject
-                        print('car35 overlaps car38')
+                        # print('car35 overlaps car38')
+                        pass
                 else:
                     x_center, y_center, width, height = darknet_label_from_rect(car38_rect)
                     labelfile.write('0 ' + str(x_center) + ' ' + str(y_center) + ' ' + str(width) + ' ' + str(height) + '\n')
@@ -247,4 +257,4 @@ for idxImg in range(len(cam_37)):
                 x_center, y_center, width, height = darknet_label_from_rect(car38_rect)
                 labelfile.write('0 ' + str(x_center) + ' ' + str(y_center) + ' ' + str(width) + ' ' + str(height) + '\n')
 
-    cv2.imwrite('dataset/images/' + FILE_PREFIX + str(idxImg).zfill(5) + '.jpg', car37_image)
+    cv2.imwrite('/home/ugrads/hard_data/carpose/dataset/images/' + FILE_PREFIX + str(idxImg).zfill(5) + '.jpg', car37_image)
