@@ -176,9 +176,9 @@ for idxImg in range(len(cam_37)):
     car35_rect = None
     if center35_3d[2] > 0:
         xmin = car37_image.shape[1] + 1
-        xmax = -1
+        xmax = 0
         ymin = car37_image.shape[0] + 1
-        ymax = -1
+        ymax = 0
         for corneridx, corner in enumerate(corners35):
             # find pixel coordinates of corners
             corner_3d = (-corner[1,3], -corner[2,3], corner[0,3])
@@ -202,9 +202,9 @@ for idxImg in range(len(cam_37)):
     if center38_3d[2] > 0:
         # cv's image.shape is formatted as (height, width, length) a.k.a. (y, x, z)
         xmin = car37_image.shape[1] + 1
-        xmax = -1
+        xmax = 0
         ymin = car37_image.shape[0] + 1
-        ymax = -1
+        ymax = 0
 
         for corneridx, corner in enumerate(corners38):
             # find pixel coordinates of corners
