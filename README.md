@@ -1,4 +1,4 @@
-# pose_prediction
+# pose detection and label generation
 
 1. trimbag.py trims a bag file to the specified time range
 2. video_box.py takes in a bag file and generates bounding prism/lables on the cars detected, outputting a video to check qualitative results
